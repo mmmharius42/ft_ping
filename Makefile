@@ -5,7 +5,7 @@ CPPFLAGS		= -I./includes
 SRCS_DIR		= src
 OBJS_DIR		= objs
 
-SRCS			= $(SRCS_DIR)/ft_ping.c
+SRCS			= $(SRCS_DIR)/ft_ping.c $(SRCS_DIR)/checksum.c
 OBJS			= $(SRCS:$(SRCS_DIR)/%.c=$(OBJS_DIR)/%.o)
 DEPS			= $(OBJS:.o=.d)
 
