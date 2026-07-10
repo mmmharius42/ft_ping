@@ -1,15 +1,12 @@
 NAME			= ft_ping
 CC				= gcc
 CFLAGS			= -Wall -Wextra -Werror
-CPPFLAGS		= -I.
-
+CPPFLAGS		= -I./includes
 SRCS_DIR		= src
 OBJS_DIR		= objs
 
 SRCS			= $(SRCS_DIR)/ft_ping.c
-
 OBJS			= $(SRCS:$(SRCS_DIR)/%.c=$(OBJS_DIR)/%.o)
-
 DEPS			= $(OBJS:.o=.d)
 
 all: $(NAME)
