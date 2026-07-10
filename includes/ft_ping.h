@@ -6,6 +6,8 @@
 #include <string.h> //memset
 #include <arpa/inet.h> //inet_pton
 
+unsigned short checksum(void *b, int len);
+
 // struct sockaddr_in {
 //     short            sin_family;   // e.g. AF_INET
 //     unsigned short   sin_port;     // e.g. htons(3490)

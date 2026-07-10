@@ -9,6 +9,7 @@ int    init_sockin(char **av, struct sockaddr_in *sock) {
 void     init_icmphdr(struct icmphdr *packet) {
     memset(packet, 0, sizeof(*packet));
     packet->type = ICMP_ECHO; // 8 = echo request
+    packet->checksum = checksum(&packet, sizeof(packet));
     packet->un.echo.id = getpid();
 }
 
@@ -30,5 +31,4 @@ int main(int ac, char **av) {
     init_icmphdr(&packet);
     if (sendto(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
         perror("sendto");
-
 }
