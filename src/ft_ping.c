@@ -19,6 +19,7 @@ int main(int ac, char **av) {
         return(fprintf(stderr, "ping: usage error: Destination address required\n"), -1);
     struct sockaddr_in sock;
     struct icmphdr packet;
+    struct timespec start, end;
     int ret = init_sockin(av, &sock);
     if (ret <= 0) {
         if (ret == 0)
@@ -30,13 +31,19 @@ int main(int ac, char **av) {
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
         perror("socket");
     init_icmphdr(&packet);
+    clock_gettime(CLOCK_MONOTONIC, &start);
     if (sendto(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
         perror("sendto");
     char buf[1024];
     socklen_t addrlen = sizeof(sock);
     ssize_t n = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr *)&sock, &addrlen);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double rtt_ms = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
     if (n < 0)
         perror("recvfrom");
-    else
-        printf("received %zd bytes\n", n);  
+    else {
+        printf("received %zd bytes in %.2f ms\n", n, rtt_ms);  
+        struct icmphdr *reply = (struct icmphdr *)(buf + 20);
+        printf("type: %d, id: %d (pid: %d)\n", reply->type, reply->un.echo.id, getpid());
+    }
 }
