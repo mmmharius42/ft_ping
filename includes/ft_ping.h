@@ -6,6 +6,8 @@
 #include <string.h> //memset
 #include <arpa/inet.h> //inet_pton
 #include <time.h>
+#include <errno.h>
+#include <signal.h>
 
 unsigned short checksum(void *b, int len);
 
