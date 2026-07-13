@@ -5,6 +5,7 @@
 #include <netinet/in.h> //sockaddr_in / in_addr
 #include <string.h> //memset
 #include <arpa/inet.h> //inet_pton
+#include <time.h>
 
 unsigned short checksum(void *b, int len);
 
