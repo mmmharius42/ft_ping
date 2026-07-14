@@ -8,6 +8,7 @@
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
+#include <math.h> //sqrt
 
 unsigned short checksum(void *b, int len);
 

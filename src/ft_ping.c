@@ -11,6 +11,12 @@ void    handle_sigint(int sig) {
     g_running = 0;
 }
 
+void    usage(void) {
+    printf("Usage: ft_ping [-v] [-?] destination\n");
+    printf("  -v  verbose output\n");
+    printf("  -?  print help and exit\n");
+}
+
 int     init_sockin(struct sockaddr_in *sock) {
     memset(sock, 0, sizeof(*sock));
     sock->sin_family = AF_INET;
@@ -47,10 +53,9 @@ int     main(int ac, char **arv) {
             _v = 1;
             printf("catch\n");
         }
-        else if (strcmp(arv[i], "-?") == 0) {
-            printf("Usage: ping [-v] [-?] destination\n");
-            return (0);
-        } else
+        else if (strcmp(arv[i], "-?") == 0)
+            return (usage(), 0);
+        else
             av = arv[i];
     }
     if (av == NULL) {
