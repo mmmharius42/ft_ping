@@ -2,21 +2,19 @@
 
 volatile sig_atomic_t g_running = 1;
 
-int g_sent = 0;
-int g_received = 0;
-double g_rtt_min = -1;
-double g_rtt_max = 0;
-double g_rtt_sum = 0;
+int g_sent = 0, g_received = 0, _v = 0;
+double g_rtt_min = -1, g_rtt_max = 0, g_rtt_sum = 0, g_rtt_sum2 = 0;
+char *av = NULL;
 
 void    handle_sigint(int sig) {
     (void)sig;
     g_running = 0;
 }
 
-int     init_sockin(char **av, struct sockaddr_in *sock) {
+int     init_sockin(struct sockaddr_in *sock) {
     memset(sock, 0, sizeof(*sock));
     sock->sin_family = AF_INET;
-    return (inet_pton(sock->sin_family, av[1], &sock->sin_addr));
+    return (inet_pton(sock->sin_family, av, &sock->sin_addr));
 }
 
 void     init_icmphdr(struct icmphdr *packet, int seq) {
@@ -35,20 +33,37 @@ void    print_stats(char *dest) {
         g_sent, g_received, loss);
     if (g_received > 0) {
         double avg = g_rtt_sum / g_received;
-        printf("rtt min/avg/max = %.3f/%.3f/%.3f ms\n", g_rtt_min, avg, g_rtt_max);
+        double variance = (g_rtt_sum2 / g_received) - (avg * avg);
+        double mdev = variance > 0 ? sqrt(variance) : 0;
+        printf("rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n", g_rtt_min, avg, g_rtt_max, mdev);
     }
 }
 
-int     main(int ac, char **av) {
+int     main(int ac, char **arv) {
     if (ac == 1)
         return(fprintf(stderr, "ping: usage error: Destination address required\n"), -1);
+    for (int i = 1; i < ac; i++) {
+        if (strcmp(arv[i], "-v") == 0) {
+            _v = 1;
+            printf("catch\n");
+        }
+        else if (strcmp(arv[i], "-?") == 0) {
+            printf("Usage: ping [-v] [-?] destination\n");
+            return (0);
+        } else
+            av = arv[i];
+    }
+    if (av == NULL) {
+        fprintf(stderr, "ping: usage error: Destination address required\n");
+        return (1);
+    }
     struct sockaddr_in sock;
     struct icmphdr packet;
     struct timespec start, end;
-    int ret = init_sockin(av, &sock);
+    int ret = init_sockin(&sock);
     if (ret <= 0) {
         if (ret == 0)
-            return(fprintf(stderr, "ping: invalid address: '%s'\n", av[1]), 1);
+            return(fprintf(stderr, "ping: invalid address: '%s'\n", av), 1);
         else
             return(perror("inet_pton"), 1);
     }
@@ -56,9 +71,13 @@ int     main(int ac, char **av) {
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
         return(perror("socket"), 1);
 
-    signal(SIGINT, handle_sigint);
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
 
-    printf("PING %s (%s) 56(84) bytes of data.\n", av[1], av[1]);
+    printf("PING %s (%s) 56(84) bytes of data.\n", av, av);
 
     int seq = 0;
     while (g_running) {
@@ -82,19 +101,23 @@ int     main(int ac, char **av) {
             struct iphdr *iph = (struct iphdr *)buf;
             struct icmphdr *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
 
-            g_received++;
-            if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
-                g_rtt_min = rtt_ms;
-            if (rtt_ms > g_rtt_max)
-                g_rtt_max = rtt_ms;
-            g_rtt_sum += rtt_ms;
-
-            printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n",
-                n - (iph->ihl * 4), av[1], reply->un.echo.sequence, iph->ttl, rtt_ms);
+            if (reply->type != ICMP_ECHOREPLY)
+                printf("received unexpected ICMP type %d from %s\n", reply->type, av);
+            else {
+                g_received++;
+                if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
+                    g_rtt_min = rtt_ms;
+                if (rtt_ms > g_rtt_max)
+                    g_rtt_max = rtt_ms;
+                g_rtt_sum += rtt_ms;
+                g_rtt_sum2 += rtt_ms * rtt_ms;
+                printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n",
+                    n - (iph->ihl * 4), av, reply->un.echo.sequence, iph->ttl, rtt_ms);
+            }
         }
         sleep(1);
     }
-    print_stats(av[1]);
+    print_stats(av);
     close(sockfd);
     return (0);
 }
