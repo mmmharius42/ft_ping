@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <unistd.h> //getpid
-#include <sys/socket.h> //socket, sendto
+#include <sys/socket.h> //socket / sendto
 #include <netinet/ip_icmp.h> //icmphdr strcut
 #include <netinet/in.h> //sockaddr_in / in_addr
 #include <string.h> //memset
@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <math.h> //sqrt
+#include <netdb.h> //getaddrinfo / freeaddrinfo / gai_strerror 
 
 unsigned short checksum(void *b, int len);
 
