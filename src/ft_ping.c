@@ -18,9 +18,20 @@ void    usage(void) {
 }
 
 int     init_sockin(struct sockaddr_in *sock) {
+    struct addrinfo hints, *res;
     memset(sock, 0, sizeof(*sock));
     sock->sin_family = AF_INET;
-    return (inet_pton(sock->sin_family, av, &sock->sin_addr));
+    if (inet_pton(sock->sin_family, av, &sock->sin_addr) == 1)
+        return (1);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_RAW;
+    int ret = getaddrinfo(av, NULL, &hints, &res);
+    if (ret != 0)
+        return (fprintf(stderr, "ft_ping: %s: %s\n", av, gai_strerror(ret)), 0);
+    sock->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    freeaddrinfo(res);
+    return (1);
 }
 
 void     init_icmphdr(struct icmphdr *packet, int seq) {
