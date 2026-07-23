@@ -1,10 +1,11 @@
 #include <ft_ping.h>
-
+#define PACKET_SIZE 64
 volatile sig_atomic_t g_running = 1;
 
 int g_sent = 0, g_received = 0, _v = 0;
 double g_rtt_min = -1, g_rtt_max = 0, g_rtt_sum = 0, g_rtt_sum2 = 0;
 char *av = NULL;
+char packe[PACKET_SIZE];
 
 void    handle_sigint(int sig) {
     (void)sig;
@@ -35,12 +36,12 @@ int     init_sockin(struct sockaddr_in *sock) {
 }
 
 void     init_icmphdr(struct icmphdr *packet, int seq) {
-    memset(packet, 0, sizeof(*packet));
+    memset(packet, 0, PACKET_SIZE);
     packet->type = ICMP_ECHO; // 8 = echo request
     packet->un.echo.id = getpid();
     packet->un.echo.sequence = seq;
     packet->checksum = 0;
-    packet->checksum = checksum(packet, sizeof(*packet));
+    packet->checksum = checksum(packet, PACKET_SIZE);
 }
 
 void    print_stats(char *dest, struct timespec *total_ms) {
@@ -78,7 +79,7 @@ int     main(int ac, char **arv) {
         return (1);
     }
     struct sockaddr_in sock;
-    struct icmphdr packet;
+    struct icmphdr *packet = (struct packet *)packe;
     struct timespec start, end, total_ms;
     int ret = init_sockin(&sock);
     if (ret <= 0) {
@@ -106,7 +107,7 @@ int     main(int ac, char **arv) {
         seq++;
         init_icmphdr(&packet, seq);
         clock_gettime(CLOCK_MONOTONIC, &start);
-        if (sendto(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
+        if (sendto(sockfd, &packet, PACKET_SIZE, 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
             perror("sendto");
         else
             g_sent++;
@@ -134,7 +135,7 @@ int     main(int ac, char **arv) {
                 g_rtt_sum += rtt_ms;
                 g_rtt_sum2 += rtt_ms * rtt_ms;
                 printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n",
-                    n + (iph->ihl * 7 + 1), ip_str, reply->un.echo.sequence, iph->ttl, rtt_ms);
+                    n - (iph->ihl * 4), ip_str, reply->un.echo.sequence, iph->ttl, rtt_ms);
             }
         }
         sleep(1);
