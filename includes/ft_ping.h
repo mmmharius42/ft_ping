@@ -4,7 +4,7 @@
 #include <netinet/ip_icmp.h> //icmphdr strcut
 #include <netinet/in.h> //sockaddr_in / in_addr
 #include <string.h> //memset
-#include <arpa/inet.h> //inet_pton
+#include <arpa/inet.h> //inet_pton / inet_ntop
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
