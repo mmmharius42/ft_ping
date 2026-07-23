@@ -5,7 +5,7 @@ volatile sig_atomic_t g_running = 1;
 int g_sent = 0, g_received = 0, _v = 0;
 double g_rtt_min = -1, g_rtt_max = 0, g_rtt_sum = 0, g_rtt_sum2 = 0;
 char *av = NULL;
-char packe[PACKET_SIZE];
+char packet_buf[PACKET_SIZE];
 
 void    handle_sigint(int sig) {
     (void)sig;
@@ -79,7 +79,7 @@ int     main(int ac, char **arv) {
         return (1);
     }
     struct sockaddr_in sock;
-    struct icmphdr *packet = (struct packet *)packe;
+    struct icmphdr *packet = (struct icmphdr *)packet_buf;
     struct timespec start, end, total_ms;
     int ret = init_sockin(&sock);
     if (ret <= 0) {
@@ -105,9 +105,9 @@ int     main(int ac, char **arv) {
     clock_gettime(CLOCK_MONOTONIC, &total_ms);
     while (g_running) {
         seq++;
-        init_icmphdr(&packet, seq);
+        init_icmphdr(packet, seq);
         clock_gettime(CLOCK_MONOTONIC, &start);
-        if (sendto(sockfd, &packet, PACKET_SIZE, 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
+        if (sendto(sockfd, packet_buf, PACKET_SIZE, 0, (struct sockaddr *)&sock, sizeof(sock)) < 0)
             perror("sendto");
         else
             g_sent++;
