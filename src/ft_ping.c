@@ -44,6 +44,9 @@ void     init_icmphdr(struct icmphdr *packet, int seq) {
 }
 
 void    print_stats(char *dest, struct timespec *total_ms) {
+    if (_v) {
+        
+    }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     double t_ms = (now.tv_sec - total_ms->tv_sec) * 1000 + (now.tv_nsec - total_ms->tv_nsec) / 1000000;
@@ -82,7 +85,7 @@ int     main(int ac, char **arv) {
         if (ret == 0)
             return(fprintf(stderr, "ping: invalid address: '%s'\n", av), 1);
         else
-            return(perror("inet_pton"), 1);
+            return(1);
     }
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
@@ -93,8 +96,9 @@ int     main(int ac, char **arv) {
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
-
-    printf("PING %s (%s) 56(84) bytes of data.\n", av, av);
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &sock.sin_addr, ip_str, sizeof(ip_str));
+    printf("PING %s (%s) 56(84) bytes of data.\n", av, ip_str);
 
     int seq = 0;
     clock_gettime(CLOCK_MONOTONIC, &total_ms);
@@ -130,7 +134,7 @@ int     main(int ac, char **arv) {
                 g_rtt_sum += rtt_ms;
                 g_rtt_sum2 += rtt_ms * rtt_ms;
                 printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n",
-                    n - (iph->ihl * 4), av, reply->un.echo.sequence, iph->ttl, rtt_ms);
+                    n + (iph->ihl * 7 + 1), ip_str, reply->un.echo.sequence, iph->ttl, rtt_ms);
             }
         }
         sleep(1);
