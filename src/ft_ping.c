@@ -43,11 +43,14 @@ void     init_icmphdr(struct icmphdr *packet, int seq) {
     packet->checksum = checksum(packet, sizeof(*packet));
 }
 
-void    print_stats(char *dest) {
+void    print_stats(char *dest, struct timespec *total_ms) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double t_ms = (now.tv_sec - total_ms->tv_sec) * 1000 + (now.tv_nsec - total_ms->tv_nsec) / 1000000;
     printf("\n--- %s ping statistics ---\n", dest);
     double loss = g_sent ? (100.0 * (g_sent - g_received) / g_sent) : 0;
-    printf("%d packets transmitted, %d received, %.0f%% packet loss\n",
-        g_sent, g_received, loss);
+    printf("%d packets transmitted, %d received, %.0f%% packet loss, time %.0fms\n",
+        g_sent, g_received, loss, t_ms);
     if (g_received > 0) {
         double avg = g_rtt_sum / g_received;
         double variance = (g_rtt_sum2 / g_received) - (avg * avg);
@@ -60,10 +63,8 @@ int     main(int ac, char **arv) {
     if (ac == 1)
         return(fprintf(stderr, "ping: usage error: Destination address required\n"), -1);
     for (int i = 1; i < ac; i++) {
-        if (strcmp(arv[i], "-v") == 0) {
+        if (strcmp(arv[i], "-v") == 0)
             _v = 1;
-            printf("catch\n");
-        }
         else if (strcmp(arv[i], "-?") == 0)
             return (usage(), 0);
         else
@@ -75,7 +76,7 @@ int     main(int ac, char **arv) {
     }
     struct sockaddr_in sock;
     struct icmphdr packet;
-    struct timespec start, end;
+    struct timespec start, end, total_ms;
     int ret = init_sockin(&sock);
     if (ret <= 0) {
         if (ret == 0)
@@ -96,6 +97,7 @@ int     main(int ac, char **arv) {
     printf("PING %s (%s) 56(84) bytes of data.\n", av, av);
 
     int seq = 0;
+    clock_gettime(CLOCK_MONOTONIC, &total_ms);
     while (g_running) {
         seq++;
         init_icmphdr(&packet, seq);
@@ -108,7 +110,6 @@ int     main(int ac, char **arv) {
         socklen_t addrlen = sizeof(sock);
         ssize_t n = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr *)&sock, &addrlen);
         clock_gettime(CLOCK_MONOTONIC, &end);
-
         if (n < 0) {
             if (errno != EINTR)
                 perror("recvfrom");
@@ -117,8 +118,9 @@ int     main(int ac, char **arv) {
             struct iphdr *iph = (struct iphdr *)buf;
             struct icmphdr *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
 
-            if (reply->type != ICMP_ECHOREPLY)
+            if (reply->type != ICMP_ECHOREPLY) {
                 printf("received unexpected ICMP type %d from %s\n", reply->type, av);
+            }
             else {
                 g_received++;
                 if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
@@ -133,7 +135,7 @@ int     main(int ac, char **arv) {
         }
         sleep(1);
     }
-    print_stats(av);
+    print_stats(av, &total_ms);
     close(sockfd);
     return (0);
 }
