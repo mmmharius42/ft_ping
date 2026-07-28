@@ -6,6 +6,8 @@ int g_sent = 0, g_received = 0, _v = 0;
 double g_rtt_min = -1, g_rtt_max = 0, g_rtt_sum = 0, g_rtt_sum2 = 0;
 char *av = NULL;
 char packet_buf[PACKET_SIZE];
+char g_canonname[256] = {0};
+int g_sockfd = -1;
 
 void    handle_sigint(int sig) {
     (void)sig;
@@ -27,10 +29,13 @@ int     init_sockin(struct sockaddr_in *sock) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_RAW;
+    hints.ai_flags = AI_CANONNAME;
     int ret = getaddrinfo(av, NULL, &hints, &res);
     if (ret != 0)
         return (fprintf(stderr, "ft_ping: %s: %s\n", av, gai_strerror(ret)), 0);
     sock->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    if (res->ai_canonname)
+        strncpy(g_canonname, res->ai_canonname, sizeof(g_canonname) - 1);
     freeaddrinfo(res);
     return (1);
 }
@@ -46,7 +51,7 @@ void     init_icmphdr(struct icmphdr *packet, int seq) {
 
 void    print_stats(char *dest, struct timespec *total_ms) {
     if (_v) {
-        
+
     }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -91,6 +96,7 @@ int     main(int ac, char **arv) {
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
         return(perror("socket"), 1);
+    g_sockfd = sockfd;
 
     struct sigaction sa;
     sa.sa_handler = handle_sigint;
@@ -99,6 +105,22 @@ int     main(int ac, char **arv) {
     sigaction(SIGINT, &sa, NULL);
     char ip_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &sock.sin_addr, ip_str, sizeof(ip_str));
+
+    if (_v) {
+        printf("ping: sock4.fd: %d (socktype: SOCK_RAW), sock6.fd: -1 (socktype: 0), "
+            "hints.ai_family: AF_INET\n", g_sockfd);
+        if (g_canonname[0])
+            printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n\n", g_canonname);
+    }
+
+    /* Reverse DNS resolution of the target, done once (matches inetutils'
+       default behaviour outside of -n). Falls back silently to the IP. */
+    char host_str[NI_MAXHOST];
+    struct sockaddr_in rev = sock;
+    if (getnameinfo((struct sockaddr *)&rev, sizeof(rev), host_str, sizeof(host_str),
+            NULL, 0, NI_NAMEREQD) != 0)
+        strncpy(host_str, ip_str, sizeof(host_str) - 1);
+
     printf("PING %s (%s) 56(84) bytes of data.\n", av, ip_str);
 
     int seq = 0;
@@ -134,8 +156,14 @@ int     main(int ac, char **arv) {
                     g_rtt_max = rtt_ms;
                 g_rtt_sum += rtt_ms;
                 g_rtt_sum2 += rtt_ms * rtt_ms;
-                printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n",
-                    n - (iph->ihl * 4), ip_str, reply->un.echo.sequence, iph->ttl, rtt_ms);
+                if (strcmp(host_str, ip_str) != 0)
+                    printf("%zd bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
+                        n - (iph->ihl * 4), host_str, ip_str, reply->un.echo.sequence,
+                        reply->un.echo.id, iph->ttl, rtt_ms);
+                else
+                    printf("%zd bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
+                        n - (iph->ihl * 4), ip_str, reply->un.echo.sequence,
+                        reply->un.echo.id, iph->ttl, rtt_ms);
             }
         }
         sleep(1);
