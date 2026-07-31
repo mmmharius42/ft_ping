@@ -141,11 +141,14 @@ int     main(int ac, char **arv) {
             if (errno != EINTR)
                 perror("recvfrom");
         } else {
-            double rtt_ms = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
-            struct iphdr *iph = (struct iphdr *)buf;
+            double          rtt_ms = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
+            struct iphdr   *iph = (struct iphdr *)buf;
             struct icmphdr *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
-
-            if (reply->type != ICMP_ECHOREPLY) {
+            unsigned short  pkt_id = ntohs(reply->un.echo.id);
+            if (pkt_id != (getpid() & 0xFFFF)) {
+                continue;
+            }
+            else if (reply->type != ICMP_ECHOREPLY) {
                 printf("received unexpected ICMP type %d from %s\n", reply->type, av);
             }
             else {
