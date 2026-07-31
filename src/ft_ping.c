@@ -42,7 +42,7 @@ int     init_sockin(struct sockaddr_in *sock) {
 
 void     init_icmphdr(struct icmphdr *packet, int seq) {
     memset(packet, 0, PACKET_SIZE);
-    packet->type = ICMP_ECHO; // 8 = echo request
+    packet->type = ICMP_ECHO;
     packet->un.echo.id = getpid();
     packet->un.echo.sequence = seq;
     packet->checksum = 0;
@@ -83,9 +83,9 @@ int     main(int ac, char **arv) {
         fprintf(stderr, "ping: usage error: Destination address required\n");
         return (1);
     }
-    struct sockaddr_in sock;
-    struct icmphdr *packet = (struct icmphdr *)packet_buf;
-    struct timespec start, end, total_ms;
+    struct sockaddr_in  sock;
+    struct icmphdr      *packet = (struct icmphdr *)packet_buf;
+    struct timespec     start, end, total_ms;
     int ret = init_sockin(&sock);
     if (ret <= 0) {
         if (ret == 0)
@@ -113,10 +113,8 @@ int     main(int ac, char **arv) {
             printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n\n", g_canonname);
     }
 
-    /* Reverse DNS resolution of the target, done once (matches inetutils'
-       default behaviour outside of -n). Falls back silently to the IP. */
-    char host_str[NI_MAXHOST];
-    struct sockaddr_in rev = sock;
+    char    host_str[NI_MAXHOST];
+    struct  sockaddr_in rev = sock;
     if (getnameinfo((struct sockaddr *)&rev, sizeof(rev), host_str, sizeof(host_str),
             NULL, 0, NI_NAMEREQD) != 0)
         strncpy(host_str, ip_str, sizeof(host_str) - 1);
@@ -133,25 +131,35 @@ int     main(int ac, char **arv) {
             perror("sendto");
         else
             g_sent++;
-        char buf[1024];
-        socklen_t addrlen = sizeof(sock);
-        ssize_t n = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr *)&sock, &addrlen);
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        if (n < 0) {
-            if (errno != EINTR)
-                perror("recvfrom");
-        } else {
+
+        char    buf[1024];
+        int     got_reply = 0;
+
+        while (!got_reply && g_running) {
+            socklen_t addrlen = sizeof(sock);
+            ssize_t n = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr *)&sock, &addrlen);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+
+            if (n < 0) {
+                if (errno != EINTR)
+                    perror("recvfrom");
+                break;
+            }
+
             double          rtt_ms = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
-            struct iphdr   *iph = (struct iphdr *)buf;
-            struct icmphdr *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
+            struct iphdr    *iph = (struct iphdr *)buf;
+            struct icmphdr  *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
             unsigned short  pkt_id = ntohs(reply->un.echo.id);
-            if (pkt_id != (getpid() & 0xFFFF)) {
+
+            if (pkt_id != (getpid() & 0xFFFF))
                 continue;
-            }
-            else if (reply->type != ICMP_ECHOREPLY) {
-                printf("received unexpected ICMP type %d from %s\n", reply->type, av);
-            }
-            else {
+
+            got_reply = 1;
+
+            if (reply->type != ICMP_ECHOREPLY) {
+                if (_v)
+                    printf("received unexpected ICMP type %d from %s\n", reply->type, av);
+            } else {
                 g_received++;
                 if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
                     g_rtt_min = rtt_ms;
@@ -161,12 +169,12 @@ int     main(int ac, char **arv) {
                 g_rtt_sum2 += rtt_ms * rtt_ms;
                 if (strcmp(host_str, ip_str) != 0)
                     printf("%zd bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
-                        n - (iph->ihl * 4), host_str, ip_str, reply->un.echo.sequence,
-                        reply->un.echo.id, iph->ttl, rtt_ms);
+                        n - (iph->ihl * 4), host_str, ip_str, ntohs(reply->un.echo.sequence),
+                        pkt_id, iph->ttl, rtt_ms);
                 else
                     printf("%zd bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
-                        n - (iph->ihl * 4), ip_str, reply->un.echo.sequence,
-                        reply->un.echo.id, iph->ttl, rtt_ms);
+                        n - (iph->ihl * 4), ip_str, ntohs(reply->un.echo.sequence),
+                        pkt_id, iph->ttl, rtt_ms);
             }
         }
         sleep(1);
