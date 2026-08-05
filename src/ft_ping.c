@@ -43,8 +43,8 @@ int     init_sockin(struct sockaddr_in *sock) {
 void     init_icmphdr(struct icmphdr *packet, int seq) {
     memset(packet, 0, PACKET_SIZE);
     packet->type = ICMP_ECHO;
-    packet->un.echo.id = getpid();
-    packet->un.echo.sequence = seq;
+    packet->un.echo.id = htons(getpid() & 0xffff);
+    packet->un.echo.sequence = htons(seq);
     packet->checksum = 0;
     packet->checksum = checksum(packet, PACKET_SIZE);
 }
@@ -151,7 +151,10 @@ int     main(int ac, char **arv) {
             struct icmphdr  *reply = (struct icmphdr *)(buf + (iph->ihl * 4));
             unsigned short  pkt_id = ntohs(reply->un.echo.id);
 
-            if (pkt_id != (getpid() & 0xFFFF))
+            if (reply->type != ICMP_ECHOREPLY)
+                continue;
+
+            if (ntohs(reply->un.echo.id) != (getpid() & 0xffff))
                 continue;
 
             got_reply = 1;
