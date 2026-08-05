@@ -50,9 +50,6 @@ void     init_icmphdr(struct icmphdr *packet, int seq) {
 }
 
 void    print_stats(char *dest, struct timespec *total_ms) {
-    if (_v) {
-
-    }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     double t_ms = (now.tv_sec - total_ms->tv_sec) * 1000 + (now.tv_nsec - total_ms->tv_nsec) / 1000000;
@@ -154,31 +151,28 @@ int     main(int ac, char **arv) {
             if (reply->type != ICMP_ECHOREPLY)
                 continue;
 
-            if (ntohs(reply->un.echo.id) != (getpid() & 0xffff))
+            if (pkt_id != (getpid() & 0xffff))
                 continue;
 
             got_reply = 1;
 
-            if (reply->type != ICMP_ECHOREPLY) {
-                if (_v)
-                    printf("received unexpected ICMP type %d from %s\n", reply->type, av);
-            } else {
-                g_received++;
-                if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
-                    g_rtt_min = rtt_ms;
-                if (rtt_ms > g_rtt_max)
-                    g_rtt_max = rtt_ms;
-                g_rtt_sum += rtt_ms;
-                g_rtt_sum2 += rtt_ms * rtt_ms;
-                if (strcmp(host_str, ip_str) != 0)
-                    printf("%zd bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
-                        n - (iph->ihl * 4), host_str, ip_str, ntohs(reply->un.echo.sequence),
-                        pkt_id, iph->ttl, rtt_ms);
-                else
-                    printf("%zd bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
-                        n - (iph->ihl * 4), ip_str, ntohs(reply->un.echo.sequence),
-                        pkt_id, iph->ttl, rtt_ms);
-            }
+            if (_v)
+                printf("received unexpected ICMP type %d from %s\n", reply->type, av);
+            g_received++;
+            if (g_rtt_min < 0 || rtt_ms < g_rtt_min)
+                g_rtt_min = rtt_ms;
+            if (rtt_ms > g_rtt_max)
+                g_rtt_max = rtt_ms;
+            g_rtt_sum += rtt_ms;
+            g_rtt_sum2 += rtt_ms * rtt_ms;
+            if (strcmp(host_str, ip_str) != 0)
+                printf("%zd bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
+                    n - (iph->ihl * 4), host_str, ip_str, ntohs(reply->un.echo.sequence),
+                    pkt_id, iph->ttl, rtt_ms);
+            else
+                printf("%zd bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n",
+                    n - (iph->ihl * 4), ip_str, ntohs(reply->un.echo.sequence),
+                    pkt_id, iph->ttl, rtt_ms);
         }
         sleep(1);
     }
