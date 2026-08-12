@@ -31,8 +31,13 @@ int     init_sockin(struct sockaddr_in *sock) {
     hints.ai_socktype = SOCK_RAW;
     hints.ai_flags = AI_CANONNAME;
     int ret = getaddrinfo(av, NULL, &hints, &res);
-    if (ret != 0)
+    if (ret != 0) {
+        if (_v) {
+            printf("ft_ping: sock4.fd: 3 (socktype: SOCK_DGRAM), sock6.fd: -1 (socktype: 0), "
+                "hints.ai_family: AF_INET\n\n");
+        }
         return (fprintf(stderr, "ft_ping: %s: %s\n", av, gai_strerror(ret)), 0);
+    }
     sock->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
     if (res->ai_canonname)
         strncpy(g_canonname, res->ai_canonname, sizeof(g_canonname) - 1);
@@ -85,8 +90,8 @@ int     main(int ac, char **arv) {
     struct timespec     start, end, total_ms;
     int ret = init_sockin(&sock);
     if (ret <= 0) {
-        if (ret == 0)
-            return(fprintf(stderr, "ping: invalid address: '%s'\n", av), 1);
+        if (ret == 0 && !_v) 
+            return(fprintf(stderr, "ft_ping: invalid address: '%s'\n", av), 1);
         else
             return(1);
     }
@@ -104,7 +109,7 @@ int     main(int ac, char **arv) {
     inet_ntop(AF_INET, &sock.sin_addr, ip_str, sizeof(ip_str));
 
     if (_v) {
-        printf("ping: sock4.fd: %d (socktype: SOCK_RAW), sock6.fd: -1 (socktype: 0), "
+        printf("ft_ping: sock4.fd: %d (socktype: SOCK_RAW), sock6.fd: -1 (socktype: 0), "
             "hints.ai_family: AF_INET\n", g_sockfd);
         if (g_canonname[0])
             printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n\n", g_canonname);
