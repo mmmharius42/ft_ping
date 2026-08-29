@@ -243,7 +243,6 @@ int     main(int ac, char **arv) {
         }
         seq++;
     }
-    printf("\n");
     print_stats();
     close(g_sockfd);
     return (g_received == 0);
