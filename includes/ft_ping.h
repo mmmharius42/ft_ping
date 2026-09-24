@@ -11,8 +11,24 @@
 #include <math.h> //sqrt
 #include <netdb.h> //getaddrinfo / freeaddrinfo / gai_strerror 
 
-unsigned short checksum(void *b, int len);
+#define PACKET_SIZE 64
+#define DATA_LEN    56
 
+extern volatile sig_atomic_t    g_running;
+extern char                     *av;
+extern size_t                   g_sent, g_received;
+extern double                   g_rtt_min, g_rtt_max, g_rtt_sum, g_rtt_sum2;
+extern unsigned short           g_ident;
+extern char                     g_ip_str[INET_ADDRSTRLEN];
+
+unsigned short  checksum(void *b, int len);
+int             init_sockin(struct sockaddr_in *sock);
+void            init_icmphdr(struct icmphdr *packet, int seq);
+void            handle_sigint(int sig);
+void            usage(void);
+const char      *icmp_code_str(int type, int code);
+void            print_stats(void);
+double          elapsed_ms(struct timespec *a, struct timespec *b);
 // struct sockaddr_in {
 //     short            sin_family;   // e.g. AF_INET
 //     unsigned short   sin_port;     // e.g. htons(3490)
